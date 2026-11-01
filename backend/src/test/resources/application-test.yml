@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:mobilebadge;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+app:
+  storage:
+    root: ${java.io.tmpdir}/mobile-badge-test-objects
+  seed:
+    enabled: true
