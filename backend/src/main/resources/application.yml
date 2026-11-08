@@ -41,3 +41,35 @@ app:
     root: ./data/objects
   seed:
     enabled: true
+  public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:8092}
+  audio-token-ttl-seconds: ${APP_AUDIO_TOKEN_TTL_SECONDS:900}
+  asr:
+    provider: ${APP_ASR_PROVIDER:mock}
+    volc:
+      app-key: ${VOLC_ASR_APP_KEY:}
+      access-key: ${VOLC_ASR_ACCESS_KEY:}
+      resource-id: ${VOLC_ASR_RESOURCE_ID:volc.bigasr.auc}
+      submit-url: ${VOLC_ASR_SUBMIT_URL:https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit}
+      query-url: ${VOLC_ASR_QUERY_URL:https://openspeech.bytedance.com/api/v3/auc/bigmodel/query}
+      hotwords: ${VOLC_ASR_HOTWORDS:}
+      callback-secret: ${VOLC_ASR_CALLBACK_SECRET:}
+      uid: ${VOLC_ASR_UID:mobile-badge}
+  llm:
+    provider: ${APP_LLM_PROVIDER:mock}
+    bailian:
+      api-key: ${DASHSCOPE_API_KEY:}
+      model: ${DASHSCOPE_MODEL:qwen3.7-flash}
+      base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+  analysis:
+    inline: ${APP_ANALYSIS_INLINE:auto}
+    poll-ms: ${APP_ANALYSIS_POLL_MS:4000}
+    initial-delay-ms: ${APP_ANALYSIS_INITIAL_DELAY_MS:4000}
+  webhook:
+    connect-timeout-ms: ${WEBHOOK_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${WEBHOOK_READ_TIMEOUT_MS:10000}
+    allow-private: ${WEBHOOK_ALLOW_PRIVATE:false}
+    retry-delays-seconds: ${WEBHOOK_RETRY_DELAYS_SECONDS:60,300,1800}
+    max-attempts: ${WEBHOOK_MAX_ATTEMPTS:4}
+    poll-ms: ${WEBHOOK_POLL_MS:15000}
+    data-key: ${WEBHOOK_DATA_KEY:}
+    allow-transcript-event: ${WEBHOOK_ALLOW_TRANSCRIPT_EVENT:false}

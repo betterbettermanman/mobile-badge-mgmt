@@ -1,9 +1,11 @@
 package com.mobilebadge.adapt;
 
 import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(prefix = "app.llm", name = "provider", havingValue = "mock", matchIfMissing = true)
 public class MockLlmAdapter implements LlmAdapter {
 
   @Override

@@ -1,9 +1,11 @@
-# 移动工牌管理（一期）
+# 移动工牌管理
 
 仓库：<https://github.com/betterbettermanman/mobile-badge-mgmt>  
 默认分支：`main`
 
-单租户闭环的第一期切片：组织与账号（US-01）已可登录验收；采集来源、会话、授权、画像/需求草案与已确认、导出和 Webhook 有可见的类型与接口边界。手机录音的音频字节、云 ASR、云 LLM、Webhook 出站都是可替换适配器上的 Mock / stub，不接真实厂商，也不做 SOP、真工牌固件、经营看板、CRM 双向或 SaaS 多租户。
+单租户闭环。一期硬规则保持不变：无授权不能开录，画像/需求草案必须人工确认后才进入已确认与默认导出，采集来源仍是 `phone` / `file` / `badge`（工牌继续拒绝）。二期把 Mock 云能力换成可切换的真链路：火山引擎豆包 ASR（异步录音文件识别，说话人分离 + 热词）、阿里云百炼通义千问（默认 `qwen3.7-flash`，只产出草案）、受控 Webhook 出站。对象存储仍是本地磁盘。
+
+不做 SOP、真工牌固件、经营看板、CRM 双向或 SaaS 多租户。不要把 API Key 写进 Git 或管理端页面。
 
 ## 本地启动
 
@@ -64,7 +66,7 @@ curl -b /tmp/mb.cj http://localhost:8092/api/meta/device-sources
 6. 「导入文件」只接受 wav/mp3/m4a/aac，上限 200MB，并且要勾选授权（或账号上已有有效授权）。来源标记为「文件」。
 7. 顾问访问 `/admin` 会进入全屏「无权访问该页面」，没有管理菜单。主管可以看组织会话和设备，不能创建成员、改授权策略、触发导出或配置 Webhook；这些接口返回 403。
 8. 管理员导出 JSON/CSV。响应里的说明是「默认仅导出已确认数据，不包含草案」。即使请求里多带草稿字段，服务端也不导出草案。
-9. Webhook 只保存 https 地址和掩码密钥。测试发送和业务事件只写本地投递日志，**不会**请求外部 URL。
+9. Webhook 只保存 https 地址和掩码后的 HMAC Secret。白名单为空时只写本地投递日志，**不会**请求外部 URL。白名单非空且启用出站后，才对 `profile.confirmed` / `need.confirmed` 做 HTTPS + HMAC 投递。管理端没有 ASR/LLM Key 表单，也没有手动重投。
 
 未登录访问业务接口返回 401。角色不对或查看他人会话返回 403，文案是「无权访问该页面」。
 
@@ -75,17 +77,46 @@ curl -b /tmp/mb.cj http://localhost:8092/api/meta/device-sources
 - 画像与需求：`draft` / `confirmed` / `rejected`。只有所属顾问能确认或解锁。主管和管理员在管理端会话详情里只读。
 - 授权策略锁定为「无授权禁止开录」。管理员只能改有效天数（默认 30）。不做「仅提醒」，也不强制每次会话重新确认。
 - 对象存储是本地磁盘。音频键的第一段是 `sessionId`，导出文件在 `exports/` 下。
-- 适配器：`AsrAdapter`、`LlmAdapter`、`ObjectStorage`。当前实现是 `MockAsrAdapter`、`MockLlmAdapter`、`LocalDiskObjectStorage`。
+- 适配器：`AsrAdapter`、`LlmAdapter`、`ObjectStorage`。`provider=mock` 时使用 `MockAsrAdapter`、`MockLlmAdapter`。`APP_ASR_PROVIDER=volc` 使用火山豆包，`APP_LLM_PROVIDER=bailian` 使用通义千问。对象存储仍是 `LocalDiskObjectStorage`，云 ASR 通过短时 `/api/internal/audio/{token}` 拉取音频。
 - 开发库用 H2。实体字段是常规 JPA 类型，后续可换 PostgreSQL。本环境不依赖 Docker。
 
 明确没有入口：SOP 质检、真工牌固件 / OTA、经营看板、CRM 双向同步、租户切换、分句角色手改。
 
+## 二期：Mock 与真云
+
+默认 `APP_ASR_PROVIDER=mock`、`APP_LLM_PROVIDER=mock`，分析在请求内跑完，适合无网回归：
+
+```bash
+cd backend && mvn test
+cd frontend && npm run build
+```
+
+真云时只通过环境变量注入密钥（名称见 `.env.example` 与 `compose.yaml`），不要写进仓库：
+
+| 变量 | 作用 |
+| --- | --- |
+| `APP_ASR_PROVIDER` | `mock`（默认）或 `volc` |
+| `VOLC_ASR_APP_KEY` / `VOLC_ASR_ACCESS_KEY` | 火山豆包语音 |
+| `VOLC_ASR_HOTWORDS` | 逗号分隔热词 |
+| `VOLC_ASR_CALLBACK_SECRET` | `POST /api/internal/asr/callback` 的 `X-Callback-Secret` |
+| `APP_LLM_PROVIDER` | `mock`（默认）或 `bailian` |
+| `DASHSCOPE_API_KEY` | 阿里云百炼 |
+| `DASHSCOPE_MODEL` | 默认 `qwen3.7-flash`，可改为 `qwen3.7-plus` 或 `qwen-plus` |
+| `APP_PUBLIC_BASE_URL` | 火山拉取音频时使用的本服务根地址，须能从公网访问 |
+| `APP_ANALYSIS_INLINE` | `auto`（两端都是 mock 时同步完成）、`true`、`false` |
+| `WEBHOOK_DATA_KEY` | 设置后 HMAC Secret 以 AES-GCM 入库；不设置时与一期一样只在库里存原值，接口仍脱敏 |
+| `WEBHOOK_ALLOW_PRIVATE` | 默认 `false`，拒绝回环和私网地址 |
+
+分析任务状态：`queued` → `processing`（阶段 `asr` 再 `llm`）→ `succeeded` 或 `failed`。顾问可重试，上限 3 次，不能在界面里改。模型结果只写草案；确认接口仍是人工动作。Webhook 默认不发送 `transcript.succeeded`。出站签名是 `X-MB-Signature: t=<unix>,v1=<hex>`，HMAC-SHA256 的原文是 `t + "." + body`。失败投递按 1 分钟 / 5 分钟 / 30 分钟自动重试，最多 4 次（含首次）。
+
+密钥缺失时任务失败文案只提示运维注入环境变量，健康检查 `/api/health` 只返回 provider 名称和是否已配置，不返回 Key。
+
 ## 已知限制与后续顺序
 
-- 手机开录只推进状态机，不采集真实麦克风字节；文件导入会把文件写入本地磁盘。
-- 转写和画像/需求抽取是 Mock，结果必须经人工确认才算正式数据。
-- Webhook 不出站。导出在请求里同步生成，状态枚举仍保留排队 / 处理中 / 完成 / 失败。
+- 手机开录仍只推进状态机，不采集真实麦克风字节；文件导入会把文件写入本地磁盘。真云 ASR 需要可拉取的音频 URL，因此手机停录在 `provider=volc` 时会因没有音频失败，文件导入可以进入火山转写。
+- 转写和画像/需求抽取在 `provider=mock` 时仍是 Mock；无论 Mock 还是千问，结果都必须经人工确认才算正式数据。
+- Webhook 在白名单为空时不出站。导出在请求里同步生成，状态枚举仍保留排队 / 处理中 / 完成 / 失败。
 - 会话删除不对顾问开放；取消只作用于尚未上传完成的录音。
 - CSRF 因同源 Cookie + SameSite=Lax 在本期关闭。
 
-建议下一轮按 US-03 真实上传与失败重试、US-04 可替换 ASR、US-05/06 确认与检索打磨、US-08 真实导出任务与受控出站的顺序做，仍然不要提前做工牌固件和 CRM。
+仍然不要提前做工牌固件和 CRM。真云说话人分离和热词抽检需要实际密钥，不在默认 `mvn test` 里调用厂商。

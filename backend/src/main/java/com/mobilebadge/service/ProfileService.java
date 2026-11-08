@@ -7,8 +7,10 @@ import com.mobilebadge.domain.CaptureSession;
 import com.mobilebadge.domain.ConfirmationStatus;
 import com.mobilebadge.domain.CustomerProfile;
 import com.mobilebadge.domain.TranscriptStatus;
+import com.mobilebadge.domain.Transcript;
 import com.mobilebadge.repo.CaptureSessionRepository;
 import com.mobilebadge.repo.CustomerProfileRepository;
+import com.mobilebadge.repo.TranscriptRepository;
 import com.mobilebadge.repo.UserAccountRepository;
 import com.mobilebadge.security.AuthPrincipal;
 import com.mobilebadge.security.CurrentUser;
@@ -26,28 +28,34 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ProfileService {
 
-  private static final String HINT = "确认前不会出现在「已确认」。确认后将进入已确认画像，可被检索与导出。";
+  private static final String HINT = "确认前不会出现在「已确认」。须分析完成（succeeded）后才可确认写入正式库。确认后可被检索与导出，并可能触发 Webhook。如需修改可解锁回草案后再确认。";
 
   private final CustomerProfileRepository profiles;
   private final CaptureSessionRepository sessions;
+  private final TranscriptRepository transcripts;
   private final UserAccountRepository users;
   private final SessionAccessService access;
   private final LlmAdapter llmAdapter;
   private final WebhookDispatcher webhooks;
+  private final AnalysisGate analysisGate;
 
   public ProfileService(
       CustomerProfileRepository profiles,
       CaptureSessionRepository sessions,
+      TranscriptRepository transcripts,
       UserAccountRepository users,
       SessionAccessService access,
       LlmAdapter llmAdapter,
-      WebhookDispatcher webhooks) {
+      WebhookDispatcher webhooks,
+      AnalysisGate analysisGate) {
     this.profiles = profiles;
     this.sessions = sessions;
+    this.transcripts = transcripts;
     this.users = users;
     this.access = access;
     this.llmAdapter = llmAdapter;
     this.webhooks = webhooks;
+    this.analysisGate = analysisGate;
   }
 
   public ProfileResponse get(long sessionId) {
@@ -80,12 +88,12 @@ public class ProfileService {
   public ProfileResponse generate(long sessionId) {
     AuthPrincipal me = CurrentUser.require();
     CaptureSession session = access.require(sessionId, me, SessionAccessMode.OWNER);
-    requireTranscript(session);
+    Transcript transcript = requireTranscriptText(session);
     CustomerProfile profile = profiles.findBySessionId(sessionId).orElseGet(() -> blank(sessionId));
     if (profile.confirmationStatus == ConfirmationStatus.confirmed) {
       throw ApiException.conflict("LOCKED", "确认后不可直接修改，请先解锁");
     }
-    LlmAdapter.ProfileDraft draft = llmAdapter.extractProfile(session.customerLabel, "mock");
+    LlmAdapter.ProfileDraft draft = llmAdapter.extractProfile(session.customerLabel, transcript.fullText);
     profile.appellation = draft.appellation();
     profile.intent = draft.intent();
     profile.budget = draft.budget();
@@ -103,6 +111,7 @@ public class ProfileService {
   public ProfileResponse confirm(long sessionId) {
     AuthPrincipal me = CurrentUser.require();
     CaptureSession session = access.require(sessionId, me, SessionAccessMode.OWNER);
+    analysisGate.assertSucceeded(sessionId);
     requireTranscript(session);
     CustomerProfile profile = profiles.findBySessionId(sessionId)
         .orElseThrow(() -> ApiException.badRequest("NO_DRAFT", "请先保存草案"));
@@ -194,6 +203,14 @@ public class ProfileService {
     if (session.transcriptStatus != TranscriptStatus.succeeded) {
       throw ApiException.conflict("TRANSCRIPT_PENDING", "转写完成后才能生成/确认画像");
     }
+  }
+
+  private Transcript requireTranscriptText(CaptureSession session) {
+    Transcript transcript = transcripts.findBySessionId(session.id).orElse(null);
+    if (transcript == null || transcript.fullText == null || transcript.fullText.isBlank()) {
+      throw ApiException.conflict("TRANSCRIPT_PENDING", "转写完成后才能生成/确认画像");
+    }
+    return transcript;
   }
 
   private static String trim(String value, int max) {

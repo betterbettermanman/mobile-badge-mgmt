@@ -26,6 +26,14 @@ export const transcriptLabel = {
   failed: '转写失败'
 }
 
+export const analysisShort = {
+  queued: '排队中',
+  processing_asr: '转写中（火山）',
+  processing_llm: '生成草案中',
+  succeeded: '分析完成',
+  failed: '分析失败'
+}
+
 export const confirmLabel = {
   draft: '草案',
   confirmed: '已确认',
@@ -59,7 +67,23 @@ export const jobLabel = {
   failed: '失败'
 }
 
+export const VENDOR_SENTENCE = '音频将发送至火山引擎（ASR）与阿里云百炼（LLM）进行分析'
+
 export function labelOf(map, key) {
   if (!key) return '—'
   return map[key] || key
+}
+
+export function sessionAnalysisLabel(item) {
+  if (item?.analysisUiStatus && analysisShort[item.analysisUiStatus]) {
+    return analysisShort[item.analysisUiStatus]
+  }
+  return labelOf(transcriptLabel, item?.transcriptStatus)
+}
+
+export function speakerLabel(speaker) {
+  if (speaker === 'advisor') return '顾问'
+  if (speaker === 'customer') return '客户'
+  if (speaker === 'unknown') return '未知'
+  return speaker || 'spk0'
 }

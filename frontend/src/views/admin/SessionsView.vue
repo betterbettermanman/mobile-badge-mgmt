@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { api } from '../../api'
 import DeviceSourceTag from '../../components/DeviceSourceTag.vue'
-import { confirmLabel, labelOf, transcriptLabel } from '../../labels'
+import { confirmLabel, labelOf, sessionAnalysisLabel } from '../../labels'
 
 const items = ref([])
 const error = ref('')
@@ -30,7 +30,7 @@ onMounted(async () => {
           <td><router-link :to="`/admin/sessions/${item.id}`">{{ item.customerLabel || '未填写' }}</router-link></td>
           <td>{{ item.ownerName }}</td>
           <td><DeviceSourceTag :source="item.source" /></td>
-          <td>{{ labelOf(transcriptLabel, item.transcriptStatus) }}</td>
+          <td>{{ sessionAnalysisLabel(item) }}</td>
           <td>{{ labelOf(confirmLabel, item.profileStatus) }}</td>
         </tr>
       </tbody>

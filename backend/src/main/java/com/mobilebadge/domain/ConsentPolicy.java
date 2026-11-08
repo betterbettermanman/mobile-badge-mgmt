@@ -25,4 +25,8 @@ public class ConsentPolicy {
   /** H-12：一期不强制每次会话重新确认。 */
   @Column(nullable = false)
   public boolean requirePerSession = false;
+
+  /** 知情同意模板。必须点名火山引擎 ASR 与阿里云百炼 LLM。 */
+  @Column(length = 1000)
+  public String statementTemplate;
 }

@@ -22,7 +22,7 @@ public class WebhookEndpoint {
   @Column(nullable = false, length = 300)
   public String url;
 
-  @Column(nullable = false, length = 120)
+  @Column(nullable = false, length = 500)
   public String secret;
 
   @Column(nullable = false, length = 200)

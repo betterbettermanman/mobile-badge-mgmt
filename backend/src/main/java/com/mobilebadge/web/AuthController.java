@@ -1,6 +1,7 @@
 package com.mobilebadge.web;
 
 import com.mobilebadge.service.AuthService;
+import com.mobilebadge.service.ProviderHealth;
 import com.mobilebadge.web.ApiModels.LoginRequest;
 import com.mobilebadge.web.ApiModels.MeResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,9 +17,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
   private final AuthService authService;
+  private final ProviderHealth providerHealth;
 
-  public AuthController(AuthService authService) {
+  public AuthController(AuthService authService, ProviderHealth providerHealth) {
     this.authService = authService;
+    this.providerHealth = providerHealth;
   }
 
   @PostMapping("/api/auth/login")
@@ -39,6 +42,6 @@ public class AuthController {
 
   @GetMapping("/api/health")
   public Map<String, String> health() {
-    return Map.of("status", "ok", "service", "mobile-badge-mgmt");
+    return providerHealth.snapshot();
   }
 }

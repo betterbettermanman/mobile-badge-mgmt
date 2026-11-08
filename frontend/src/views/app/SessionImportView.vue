@@ -1,16 +1,27 @@
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../../api'
 import DeviceSourceTag from '../../components/DeviceSourceTag.vue'
+import { VENDOR_SENTENCE } from '../../labels'
 
 const router = useRouter()
 const customerLabel = ref('')
 const file = ref(null)
 const acknowledged = ref(false)
+const consentValid = ref(false)
 const error = ref('')
 const loading = ref(false)
 const allowed = ['wav', 'mp3', 'm4a', 'aac']
+
+onMounted(async () => {
+  try {
+    const status = await api('/api/consents/status')
+    consentValid.value = status.status === 'valid'
+  } catch {
+    consentValid.value = false
+  }
+})
 
 function onFile(event) {
   file.value = event.target.files?.[0] || null
@@ -32,14 +43,14 @@ async function submit() {
     error.value = '文件超过大小限制（默认 200MB）'
     return
   }
-  if (!acknowledged.value) {
+  if (!consentValid.value && !acknowledged.value) {
     error.value = '请先确认客户已同意录音'
     return
   }
   const body = new FormData()
   body.append('file', file.value)
   body.append('customerLabel', customerLabel.value)
-  body.append('consentAcknowledged', 'true')
+  body.append('consentAcknowledged', consentValid.value ? 'false' : 'true')
   loading.value = true
   try {
     const created = await api('/api/sessions/import', { method: 'POST', body })
@@ -68,10 +79,17 @@ async function submit() {
       <span>音频文件</span>
       <input type="file" accept=".wav,.mp3,.m4a,.aac,audio/*" @change="onFile" />
     </label>
-    <label class="check">
-      <input v-model="acknowledged" type="checkbox" />
-      <span>客户已同意本次/本段服务录音</span>
-    </label>
+    <p v-if="consentValid" class="banner ok">已授权。有效期内无需重新勾选。{{ VENDOR_SENTENCE }}。</p>
+    <template v-else>
+      <div class="vendor-box">
+        <p>{{ VENDOR_SENTENCE }}。</p>
+        <p>草案须人工确认后才进入正式库。</p>
+      </div>
+      <label class="check">
+        <input v-model="acknowledged" type="checkbox" />
+        <span>我已向客户说明，并取得录音同意</span>
+      </label>
+    </template>
     <p v-if="error" class="error-text">{{ error }}</p>
     <button class="btn primary" :disabled="loading" @click="submit">{{ loading ? '上传中…' : '上传' }}</button>
   </div>
