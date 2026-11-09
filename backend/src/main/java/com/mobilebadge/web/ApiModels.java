@@ -96,7 +96,8 @@ public final class ApiModels {
       ConsentState consentStatus,
       String failureReason,
       Instant createdAt,
-      Instant updatedAt) {
+      Instant updatedAt,
+      String analysisUiStatus) {
   }
 
   public record PageResponse<T>(List<T> items, long total, int page, int size) {
@@ -140,7 +141,8 @@ public final class ApiModels {
       int validityDays,
       boolean requirePerSession,
       boolean remindOnlyAvailable,
-      String modeLabel) {
+      String modeLabel,
+      String statementTemplate) {
   }
 
   public record PolicyUpdate(@NotNull @Min(1) @Max(365) Integer validityDays) {
@@ -235,10 +237,41 @@ public final class ApiModels {
   public record WebhookUpdate(String url, String secret, List<String> events, Boolean enabled) {
   }
 
-  public record WebhookResponse(Long id, String url, String secretMasked, List<String> events, boolean enabled, Instant createdAt) {
+  public record WebhookResponse(
+      Long id, String url, String secretMasked, List<String> events, boolean enabled, Instant createdAt, String notice) {
   }
 
-  public record WebhookDeliveryResponse(Long id, Long webhookId, String eventName, int statusCode, String detail, Instant createdAt) {
+  public record WebhookPolicyResponse(String allowlist, boolean outboundEnabled, String hint) {
+  }
+
+  public record WebhookPolicyUpdate(String allowlist, Boolean outboundEnabled) {
+  }
+
+  public record WebhookDeliveryResponse(
+      Long id,
+      Long webhookId,
+      String eventName,
+      int statusCode,
+      String detail,
+      Instant createdAt,
+      String state,
+      int attempt,
+      Instant nextRetryAt) {
+  }
+
+  public record AnalysisResponse(
+      Long sessionId,
+      String status,
+      String stage,
+      String uiStatus,
+      String title,
+      String subtitle,
+      int retryCount,
+      int retryLimit,
+      boolean canRetry,
+      boolean canConfirm,
+      String lastError,
+      String vendor) {
   }
 
   public record OverviewResponse(

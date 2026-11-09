@@ -5,7 +5,9 @@ import com.mobilebadge.domain.DeviceSource;
 import com.mobilebadge.domain.TranscriptStatus;
 import com.mobilebadge.security.SessionAccess;
 import com.mobilebadge.security.SessionAccessMode;
+import com.mobilebadge.service.AnalysisService;
 import com.mobilebadge.service.CaptureService;
+import com.mobilebadge.web.ApiModels.AnalysisResponse;
 import com.mobilebadge.web.ApiModels.PageResponse;
 import com.mobilebadge.web.ApiModels.SessionCreate;
 import com.mobilebadge.web.ApiModels.SessionResponse;
@@ -25,9 +27,11 @@ import org.springframework.web.multipart.MultipartFile;
 public class SessionController {
 
   private final CaptureService captureService;
+  private final AnalysisService analysisService;
 
-  public SessionController(CaptureService captureService) {
+  public SessionController(CaptureService captureService, AnalysisService analysisService) {
     this.captureService = captureService;
+    this.analysisService = analysisService;
   }
 
   @GetMapping("/api/sessions")
@@ -94,5 +98,17 @@ public class SessionController {
   @SessionAccess(SessionAccessMode.READ)
   public TranscriptResponse transcript(@PathVariable long id) {
     return captureService.transcript(id);
+  }
+
+  @GetMapping("/api/sessions/{id}/analysis")
+  @SessionAccess(SessionAccessMode.READ)
+  public AnalysisResponse analysis(@PathVariable long id) {
+    return analysisService.view(id);
+  }
+
+  @PostMapping("/api/sessions/{id}/analysis/retry")
+  @SessionAccess(SessionAccessMode.OWNER)
+  public AnalysisResponse retryAnalysis(@PathVariable long id) {
+    return analysisService.retry(id);
   }
 }

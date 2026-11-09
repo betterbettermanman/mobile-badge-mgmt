@@ -45,6 +45,8 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/internal/audio/**").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/internal/asr/callback").permitAll()
             .requestMatchers("/api/**").authenticated()
             .anyRequest().permitAll())
         .exceptionHandling(ex -> ex

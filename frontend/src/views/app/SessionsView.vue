@@ -2,7 +2,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { api } from '../../api'
 import DeviceSourceTag from '../../components/DeviceSourceTag.vue'
-import { captureLabel, confirmLabel, labelOf, transcriptLabel } from '../../labels'
+import { captureLabel, confirmLabel, labelOf, sessionAnalysisLabel } from '../../labels'
 
 const filters = [
   { key: 'all', label: '全部' },
@@ -78,8 +78,8 @@ onMounted(load)
         <div class="row" style="margin-top:8px">
           <DeviceSourceTag :source="item.source" />
           <span class="tag neutral">{{ labelOf(captureLabel, item.captureStatus) }}</span>
-          <span v-if="item.transcriptStatus" class="tag" :class="item.transcriptStatus === 'failed' ? 'bad' : ''">
-            {{ labelOf(transcriptLabel, item.transcriptStatus) }}
+          <span v-if="item.transcriptStatus || item.analysisUiStatus" class="tag" :class="item.analysisUiStatus === 'failed' || item.transcriptStatus === 'failed' ? 'bad' : ''">
+            {{ sessionAnalysisLabel(item) }}
           </span>
           <span v-if="item.profileStatus" class="tag" :class="item.profileStatus === 'draft' ? 'warn' : ''">
             画像{{ labelOf(confirmLabel, item.profileStatus) }}

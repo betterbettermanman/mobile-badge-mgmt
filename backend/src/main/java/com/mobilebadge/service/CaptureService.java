@@ -1,11 +1,6 @@
 package com.mobilebadge.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mobilebadge.adapt.AsrAdapter;
 import com.mobilebadge.adapt.ObjectStorage;
-import com.mobilebadge.adapt.WebhookEvents;
 import com.mobilebadge.common.ApiException;
 import com.mobilebadge.domain.AudioObject;
 import com.mobilebadge.domain.CaptureSession;
@@ -14,23 +9,19 @@ import com.mobilebadge.domain.ConfirmationStatus;
 import com.mobilebadge.domain.ConsentState;
 import com.mobilebadge.domain.DeviceSource;
 import com.mobilebadge.domain.DeviceSourcePolicy;
-import com.mobilebadge.domain.Transcript;
 import com.mobilebadge.domain.TranscriptStatus;
 import com.mobilebadge.repo.AudioObjectRepository;
 import com.mobilebadge.repo.CaptureSessionRepository;
 import com.mobilebadge.repo.CustomerProfileRepository;
-import com.mobilebadge.repo.TranscriptRepository;
 import com.mobilebadge.security.AuthPrincipal;
 import com.mobilebadge.security.CurrentUser;
 import com.mobilebadge.security.SessionAccessMode;
 import com.mobilebadge.security.SessionAccessService;
 import com.mobilebadge.web.ApiModels.PageResponse;
-import com.mobilebadge.web.ApiModels.SentenceResponse;
 import com.mobilebadge.web.ApiModels.SessionResponse;
 import com.mobilebadge.web.ApiModels.TranscriptResponse;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import org.springframework.data.domain.Page;
@@ -45,45 +36,36 @@ public class CaptureService {
   private static final Set<String> AUDIO_EXT = Set.of("wav", "mp3", "m4a", "aac");
 
   private final CaptureSessionRepository sessions;
-  private final TranscriptRepository transcripts;
   private final AudioObjectRepository audios;
   private final CustomerProfileRepository profiles;
   private final SessionAccessService access;
   private final OrgService orgService;
   private final ConsentService consentService;
   private final DeviceService deviceService;
-  private final AsrAdapter asrAdapter;
   private final ObjectStorage storage;
-  private final WebhookDispatcher webhooks;
-  private final ObjectMapper objectMapper;
+  private final AnalysisService analysis;
   private final SessionViews views;
 
   public CaptureService(
       CaptureSessionRepository sessions,
-      TranscriptRepository transcripts,
       AudioObjectRepository audios,
       CustomerProfileRepository profiles,
       SessionAccessService access,
       OrgService orgService,
       ConsentService consentService,
       DeviceService deviceService,
-      AsrAdapter asrAdapter,
       ObjectStorage storage,
-      WebhookDispatcher webhooks,
-      ObjectMapper objectMapper,
+      AnalysisService analysis,
       SessionViews views) {
     this.sessions = sessions;
-    this.transcripts = transcripts;
     this.audios = audios;
     this.profiles = profiles;
     this.access = access;
     this.orgService = orgService;
     this.consentService = consentService;
     this.deviceService = deviceService;
-    this.asrAdapter = asrAdapter;
     this.storage = storage;
-    this.webhooks = webhooks;
-    this.objectMapper = objectMapper;
+    this.analysis = analysis;
     this.views = views;
   }
 
@@ -141,7 +123,7 @@ public class CaptureService {
       sessions.save(session);
       throw ApiException.badRequest("UPLOAD_FAILED", "上传失败，请重试");
     }
-    transcribe(session);
+    analysis.enqueue(session);
     return views.toResponse(sessions.findById(session.id).orElse(session));
   }
 
@@ -185,7 +167,7 @@ public class CaptureService {
     session.captureStatus = CaptureStatus.uploading;
     session.updatedAt = Instant.now();
     sessions.save(session);
-    transcribe(session);
+    analysis.enqueue(session);
     return views.toResponse(sessions.findById(session.id).orElse(session));
   }
 
@@ -208,7 +190,7 @@ public class CaptureService {
     if (session.captureStatus != CaptureStatus.upload_failed) {
       throw ApiException.conflict("STATE", "当前没有失败的上传");
     }
-    transcribe(session);
+    analysis.enqueue(session);
     return views.toResponse(sessions.findById(session.id).orElse(session));
   }
 
@@ -218,58 +200,18 @@ public class CaptureService {
     if (session.captureStatus != CaptureStatus.uploaded && session.captureStatus != CaptureStatus.upload_failed) {
       throw ApiException.badRequest("NO_AUDIO", "尚无音频可转写");
     }
-    session.transcriptStatus = TranscriptStatus.queued;
-    session.failureReason = null;
     session.updatedAt = Instant.now();
     sessions.save(session);
-    transcribe(session);
+    analysis.enqueue(session);
     return views.toResponse(sessions.findById(session.id).orElse(session));
   }
 
   public TranscriptResponse transcript(long id) {
-    CaptureSession session = access.require(id, CurrentUser.require(), SessionAccessMode.READ);
-    if (session.transcriptStatus != TranscriptStatus.succeeded) {
-      return new TranscriptResponse(session.id, session.transcriptStatus, null, List.of(), noteFor(session), "mock");
-    }
-    Transcript transcript = transcripts.findBySessionId(session.id).orElse(null);
-    List<SentenceResponse> sentences = List.of();
-    String full = null;
-    if (transcript != null) {
-      full = transcript.fullText;
-      sentences = readSentences(transcript.sentencesJson);
-    }
-    return new TranscriptResponse(session.id, TranscriptStatus.succeeded, full, sentences, "当前为 Mock ASR，非云端转写。一期不能手动改正分句角色。", "mock");
+    return analysis.transcript(id);
   }
 
   public ConfirmationStatus profileStatus(long sessionId) {
     return profiles.findBySessionId(sessionId).map(profile -> profile.confirmationStatus).orElse(null);
-  }
-
-  private void transcribe(CaptureSession session) {
-    session.captureStatus = CaptureStatus.uploaded;
-    session.transcriptStatus = TranscriptStatus.processing;
-    session.failureReason = null;
-    session.updatedAt = Instant.now();
-    sessions.save(session);
-    try {
-      String key = audios.findFirstBySessionIdOrderByIdDesc(session.id).map(audio -> audio.storageKey).orElse(null);
-      AsrAdapter.AsrResult result = asrAdapter.transcribe(session.id, key);
-      Transcript transcript = transcripts.findBySessionId(session.id).orElseGet(Transcript::new);
-      transcript.sessionId = session.id;
-      transcript.fullText = result.fullText();
-      transcript.sentencesJson = objectMapper.writeValueAsString(result.sentences());
-      transcript.updatedAt = Instant.now();
-      transcripts.save(transcript);
-      session.transcriptStatus = TranscriptStatus.succeeded;
-      session.updatedAt = Instant.now();
-      sessions.save(session);
-      webhooks.dispatch(session.organizationId, WebhookEvents.TRANSCRIPT_SUCCEEDED, "session=" + session.id);
-    } catch (RuntimeException | JsonProcessingException ex) {
-      session.transcriptStatus = TranscriptStatus.failed;
-      session.failureReason = "转写失败，可重新转写";
-      session.updatedAt = Instant.now();
-      sessions.save(session);
-    }
   }
 
   private void ensureImportConsent(AuthPrincipal me, boolean consentAcknowledged) {
@@ -294,31 +236,6 @@ public class CaptureService {
     session.createdAt = Instant.now();
     session.updatedAt = session.createdAt;
     return session;
-  }
-
-  private List<SentenceResponse> readSentences(String json) {
-    if (json == null || json.isBlank()) {
-      return List.of();
-    }
-    try {
-      List<AsrAdapter.AsrSentence> parsed = objectMapper.readValue(json, new TypeReference<>() {
-      });
-      return parsed.stream().map(sentence -> new SentenceResponse(sentence.speaker(), sentence.text())).toList();
-    } catch (JsonProcessingException ex) {
-      return List.of();
-    }
-  }
-
-  private static String noteFor(CaptureSession session) {
-    if (session.transcriptStatus == null) {
-      return "尚未转写";
-    }
-    return switch (session.transcriptStatus) {
-      case queued -> "排队中";
-      case processing -> "转写中";
-      case failed -> "转写失败，可重新转写";
-      case succeeded -> "当前为 Mock ASR，非云端转写。一期不能手动改正分句角色。";
-    };
   }
 
   private static String normalizeLabel(String customerLabel) {

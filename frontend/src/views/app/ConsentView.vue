@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { api } from '../../api'
-import { consentLabel, labelOf } from '../../labels'
+import { consentLabel, labelOf, VENDOR_SENTENCE } from '../../labels'
 
 const status = ref(null)
 const records = ref([])
@@ -24,6 +24,7 @@ onMounted(async () => {
     <div v-if="status" class="card">
       <div>当前状态：{{ labelOf(consentLabel, status.status) }}</div>
       <p class="muted">{{ status.message }}。无有效授权时不能开始录音。</p>
+      <p class="muted">{{ VENDOR_SENTENCE }}。有效期内无需每次开录重新勾选。</p>
     </div>
     <article v-for="item in records" :key="item.id" class="item">
       <div>{{ labelOf(consentLabel, item.status) }} · {{ item.statement }}</div>

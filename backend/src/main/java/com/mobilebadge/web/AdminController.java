@@ -18,6 +18,8 @@ import com.mobilebadge.web.ApiModels.PageResponse;
 import com.mobilebadge.web.ApiModels.SessionResponse;
 import com.mobilebadge.web.ApiModels.WebhookCreate;
 import com.mobilebadge.web.ApiModels.WebhookDeliveryResponse;
+import com.mobilebadge.web.ApiModels.WebhookPolicyResponse;
+import com.mobilebadge.web.ApiModels.WebhookPolicyUpdate;
 import com.mobilebadge.web.ApiModels.WebhookResponse;
 import com.mobilebadge.web.ApiModels.WebhookUpdate;
 import jakarta.validation.Valid;
@@ -31,6 +33,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -108,6 +111,18 @@ public class AdminController {
         .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
         .contentType(media)
         .body(exportService.download(id));
+  }
+
+  @GetMapping("/api/admin/webhooks/policy")
+  @PreAuthorize("hasRole('ADMIN')")
+  public WebhookPolicyResponse webhookPolicy() {
+    return webhookService.policy();
+  }
+
+  @PutMapping("/api/admin/webhooks/policy")
+  @PreAuthorize("hasRole('ADMIN')")
+  public WebhookPolicyResponse updateWebhookPolicy(@RequestBody WebhookPolicyUpdate request) {
+    return webhookService.updatePolicy(request);
   }
 
   @GetMapping("/api/admin/webhooks")

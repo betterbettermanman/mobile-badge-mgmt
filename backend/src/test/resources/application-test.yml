@@ -10,3 +10,15 @@ app:
     root: ${java.io.tmpdir}/mobile-badge-test-objects
   seed:
     enabled: true
+  asr:
+    provider: mock
+  llm:
+    provider: mock
+  analysis:
+    inline: "true"
+    poll-ms: 600000
+    initial-delay-ms: 600000
+  webhook:
+    retry-delays-seconds: "0,0,0"
+    max-attempts: 3
+    allow-transcript-event: false

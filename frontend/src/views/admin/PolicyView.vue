@@ -18,7 +18,7 @@ async function save() {
   error.value = ''
   try {
     policy.value = await api('/api/admin/consent-policy', { method: 'PUT', body: { validityDays: Number(days.value) } })
-    message.value = '已保存。策略仍是无授权禁止开录，将影响全体顾问开录。'
+    message.value = '模板已同步点名：火山引擎（ASR）· 阿里云百炼（LLM）。'
   } catch (err) {
     error.value = err.message
   }
@@ -39,9 +39,13 @@ async function save() {
       </label>
       <label class="check">
         <input type="checkbox" disabled />
-        <span>每次会话重新确认（一期不启用）</span>
+        <span>每次会话重新确认（不启用，有效期内免重复勾选）</span>
       </label>
-      <p class="muted">「仅提醒不强制」不在一期开放。</p>
+      <label class="field">
+        <span>知情同意模板</span>
+        <textarea :value="policy.statementTemplate" readonly />
+      </label>
+      <p class="muted">模板必须点名火山引擎（ASR）与阿里云百炼（LLM）。顾问端授权半屏引用这段说明。</p>
       <p v-if="message" class="banner ok">{{ message }}</p>
       <p v-if="error" class="error-text">{{ error }}</p>
       <button v-if="canEdit" class="btn primary" @click="save">保存</button>

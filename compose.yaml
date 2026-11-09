@@ -1,0 +1,34 @@
+# 二期环境变量说明。密钥只从环境注入，不要写进镜像或 Git。
+# 本文件不代替本地 mvn / npm 启动；默认 provider=mock，可无网回归。
+services:
+  backend:
+    image: eclipse-temurin:21-jre
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ASR_PROVIDER: ${APP_ASR_PROVIDER:-mock}
+      APP_LLM_PROVIDER: ${APP_LLM_PROVIDER:-mock}
+      APP_ANALYSIS_INLINE: ${APP_ANALYSIS_INLINE:-auto}
+      APP_PUBLIC_BASE_URL: ${APP_PUBLIC_BASE_URL:-http://localhost:8092}
+      APP_AUDIO_TOKEN_TTL_SECONDS: ${APP_AUDIO_TOKEN_TTL_SECONDS:-900}
+      VOLC_ASR_APP_KEY: ${VOLC_ASR_APP_KEY:-}
+      VOLC_ASR_ACCESS_KEY: ${VOLC_ASR_ACCESS_KEY:-}
+      VOLC_ASR_RESOURCE_ID: ${VOLC_ASR_RESOURCE_ID:-volc.bigasr.auc}
+      VOLC_ASR_SUBMIT_URL: ${VOLC_ASR_SUBMIT_URL:-https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit}
+      VOLC_ASR_QUERY_URL: ${VOLC_ASR_QUERY_URL:-https://openspeech.bytedance.com/api/v3/auc/bigmodel/query}
+      VOLC_ASR_HOTWORDS: ${VOLC_ASR_HOTWORDS:-}
+      VOLC_ASR_CALLBACK_SECRET: ${VOLC_ASR_CALLBACK_SECRET:-}
+      VOLC_ASR_UID: ${VOLC_ASR_UID:-mobile-badge}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      DASHSCOPE_MODEL: ${DASHSCOPE_MODEL:-qwen3.7-flash}
+      DASHSCOPE_BASE_URL: ${DASHSCOPE_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      WEBHOOK_DATA_KEY: ${WEBHOOK_DATA_KEY:-}
+      WEBHOOK_ALLOW_PRIVATE: ${WEBHOOK_ALLOW_PRIVATE:-false}
+      WEBHOOK_CONNECT_TIMEOUT_MS: ${WEBHOOK_CONNECT_TIMEOUT_MS:-5000}
+      WEBHOOK_READ_TIMEOUT_MS: ${WEBHOOK_READ_TIMEOUT_MS:-10000}
+      WEBHOOK_RETRY_DELAYS_SECONDS: ${WEBHOOK_RETRY_DELAYS_SECONDS:-60,300,1800}
+      WEBHOOK_MAX_ATTEMPTS: ${WEBHOOK_MAX_ATTEMPTS:-4}
+      WEBHOOK_ALLOW_TRANSCRIPT_EVENT: ${WEBHOOK_ALLOW_TRANSCRIPT_EVENT:-false}
+    ports:
+      - "8092:8092"

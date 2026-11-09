@@ -3,6 +3,7 @@ package com.mobilebadge.service;
 import com.mobilebadge.domain.CaptureSession;
 import com.mobilebadge.domain.Store;
 import com.mobilebadge.domain.UserAccount;
+import com.mobilebadge.repo.AnalysisJobRepository;
 import com.mobilebadge.repo.CustomerProfileRepository;
 import com.mobilebadge.repo.StoreRepository;
 import com.mobilebadge.repo.UserAccountRepository;
@@ -16,16 +17,19 @@ public class SessionViews {
   private final UserAccountRepository users;
   private final CustomerProfileRepository profiles;
   private final ConsentService consentService;
+  private final AnalysisJobRepository jobs;
 
   public SessionViews(
       StoreRepository stores,
       UserAccountRepository users,
       CustomerProfileRepository profiles,
-      ConsentService consentService) {
+      ConsentService consentService,
+      AnalysisJobRepository jobs) {
     this.stores = stores;
     this.users = users;
     this.profiles = profiles;
     this.consentService = consentService;
+    this.jobs = jobs;
   }
 
   public SessionResponse toResponse(CaptureSession session) {
@@ -46,6 +50,7 @@ public class SessionViews {
         consentService.currentState(session.ownerUserId),
         session.failureReason,
         session.createdAt,
-        session.updatedAt);
+        session.updatedAt,
+        AnalysisCopy.uiStatus(jobs.findBySessionId(session.id).orElse(null)));
   }
 }

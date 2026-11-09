@@ -28,6 +28,17 @@ public class WebhookDelivery {
   @Column(nullable = false, length = 300)
   public String detail;
 
+  @Column(length = 32)
+  public String state;
+
+  @Column(nullable = false)
+  public int attempt;
+
+  public Instant nextRetryAt;
+
+  @Column(length = 4000)
+  public String requestBody;
+
   @Column(nullable = false)
   public Instant createdAt = Instant.now();
 }

@@ -8,9 +8,11 @@ import com.mobilebadge.domain.ConfirmationStatus;
 import com.mobilebadge.domain.NeedFollowStatus;
 import com.mobilebadge.domain.NeedItem;
 import com.mobilebadge.domain.NeedOrigin;
+import com.mobilebadge.domain.Transcript;
 import com.mobilebadge.domain.TranscriptStatus;
 import com.mobilebadge.repo.CaptureSessionRepository;
 import com.mobilebadge.repo.NeedItemRepository;
+import com.mobilebadge.repo.TranscriptRepository;
 import com.mobilebadge.repo.UserAccountRepository;
 import com.mobilebadge.security.AuthPrincipal;
 import com.mobilebadge.security.CurrentUser;
@@ -30,24 +32,30 @@ public class NeedService {
 
   private final NeedItemRepository needs;
   private final CaptureSessionRepository sessions;
+  private final TranscriptRepository transcripts;
   private final UserAccountRepository users;
   private final SessionAccessService access;
   private final LlmAdapter llmAdapter;
   private final WebhookDispatcher webhooks;
+  private final AnalysisGate analysisGate;
 
   public NeedService(
       NeedItemRepository needs,
       CaptureSessionRepository sessions,
+      TranscriptRepository transcripts,
       UserAccountRepository users,
       SessionAccessService access,
       LlmAdapter llmAdapter,
-      WebhookDispatcher webhooks) {
+      WebhookDispatcher webhooks,
+      AnalysisGate analysisGate) {
     this.needs = needs;
     this.sessions = sessions;
+    this.transcripts = transcripts;
     this.users = users;
     this.access = access;
     this.llmAdapter = llmAdapter;
     this.webhooks = webhooks;
+    this.analysisGate = analysisGate;
   }
 
   public List<NeedResponse> list(long sessionId, ConfirmationStatus status) {
@@ -96,11 +104,17 @@ public class NeedService {
   public List<NeedResponse> generate(long sessionId) {
     AuthPrincipal me = CurrentUser.require();
     CaptureSession session = access.require(sessionId, me, SessionAccessMode.OWNER);
-    if (session.transcriptStatus != TranscriptStatus.succeeded) {
+    Transcript transcript = transcripts.findBySessionId(sessionId).orElse(null);
+    if (transcript == null || transcript.fullText == null || transcript.fullText.isBlank()) {
       throw ApiException.conflict("TRANSCRIPT_PENDING", "转写完成后才能生成/确认画像");
     }
+    for (NeedItem existing : needs.findBySessionIdOrderByIdAsc(sessionId)) {
+      if (existing.origin == NeedOrigin.model && existing.confirmationStatus != ConfirmationStatus.confirmed) {
+        needs.delete(existing);
+      }
+    }
     List<NeedResponse> created = new ArrayList<>();
-    for (LlmAdapter.NeedDraft draft : llmAdapter.extractNeeds("mock")) {
+    for (LlmAdapter.NeedDraft draft : llmAdapter.extractNeeds(transcript.fullText)) {
       NeedItem item = new NeedItem();
       item.sessionId = sessionId;
       item.title = draft.title();
@@ -119,6 +133,7 @@ public class NeedService {
   public NeedResponse confirm(long sessionId, long needId) {
     AuthPrincipal me = CurrentUser.require();
     CaptureSession session = access.require(sessionId, me, SessionAccessMode.OWNER);
+    analysisGate.assertSucceeded(sessionId);
     if (session.transcriptStatus != TranscriptStatus.succeeded) {
       throw ApiException.conflict("TRANSCRIPT_PENDING", "转写完成后才能生成/确认画像");
     }

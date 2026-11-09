@@ -20,7 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ConsentService {
 
-  public static final String STATEMENT = "客户已同意本次/本段服务录音";
+  public static final String VENDOR_SENTENCE = "音频将发送至火山引擎（ASR）与阿里云百炼（LLM）进行分析";
+
+  public static final String STATEMENT = "请向客户说明：本次/本段服务将进行录音。音频将发送至火山引擎（ASR）与阿里云百炼（LLM）进行分析，用于生成会话转写及客户画像/需求草案。草案须人工确认后才进入正式库与默认可导出范围。授权有效期内无需每次开录重新勾选；您可随时要求撤销授权。";
 
   private final ConsentRecordRepository records;
   private final ConsentPolicyRepository policies;
@@ -98,6 +100,9 @@ public class ConsentService {
     policy.validityDays = days;
     policy.blockWithoutConsent = true;
     policy.requirePerSession = false;
+    if (policy.statementTemplate == null || !policy.statementTemplate.contains("火山引擎") || !policy.statementTemplate.contains("阿里云百炼")) {
+      policy.statementTemplate = STATEMENT;
+    }
     policies.save(policy);
     return toPolicy(policy);
   }
@@ -132,12 +137,14 @@ public class ConsentService {
       created.blockWithoutConsent = true;
       created.validityDays = 30;
       created.requirePerSession = false;
+      created.statementTemplate = STATEMENT;
       return policies.save(created);
     });
   }
 
   private PolicyResponse toPolicy(ConsentPolicy policy) {
-    return new PolicyResponse(true, policy.validityDays, false, false, "无授权禁止开录");
+    String template = policy.statementTemplate == null || policy.statementTemplate.isBlank() ? STATEMENT : policy.statementTemplate;
+    return new PolicyResponse(true, policy.validityDays, false, false, "无授权禁止开录", template);
   }
 
   private ConsentRecordResponse toRecord(ConsentRecord record) {

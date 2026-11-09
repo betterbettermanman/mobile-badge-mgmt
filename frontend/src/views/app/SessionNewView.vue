@@ -156,7 +156,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
       <div>录音中</div>
       <div class="timer">{{ clock(seconds) }}</div>
       <p class="muted">来源：手机 · 授权：{{ consentLabel[consent.status] || '已授权' }}</p>
-      <p class="muted">一期录音字节为状态机联调，结束并上传后由 Mock ASR 生成转写。</p>
+      <p class="muted">结束并上传后进入分析：排队、火山转写、千问草案。Mock 或真云由运维配置，草案需人工确认。</p>
       <div class="row" style="justify-content:center">
         <button class="btn primary" :disabled="loading" @click="stop">结束并上传</button>
         <button class="btn ghost" @click="cancel">取消</button>

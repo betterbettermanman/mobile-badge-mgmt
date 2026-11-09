@@ -2,6 +2,7 @@ package com.mobilebadge.seed;
 
 import com.mobilebadge.config.AppProperties;
 import com.mobilebadge.domain.ConsentPolicy;
+import com.mobilebadge.service.ConsentService;
 import com.mobilebadge.domain.Organization;
 import com.mobilebadge.domain.Role;
 import com.mobilebadge.domain.Store;
@@ -63,7 +64,15 @@ public class DataSeeder implements ApplicationRunner {
       policy.blockWithoutConsent = true;
       policy.validityDays = 30;
       policy.requirePerSession = false;
+      policy.statementTemplate = ConsentService.STATEMENT;
       policies.save(policy);
+    } else {
+      for (ConsentPolicy policy : policies.findAll()) {
+        if (policy.statementTemplate == null || !policy.statementTemplate.contains("火山引擎") || !policy.statementTemplate.contains("阿里云百炼")) {
+          policy.statementTemplate = ConsentService.STATEMENT;
+          policies.save(policy);
+        }
+      }
     }
     if (users.findByAccount(ADMIN_ACCOUNT).isPresent()) {
       return;

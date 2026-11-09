@@ -9,9 +9,16 @@ public interface LlmAdapter {
 
   List<NeedDraft> extractNeeds(String transcript);
 
+  default Extraction extract(String customerLabel, String transcript) {
+    return new Extraction(extractProfile(customerLabel, transcript), extractNeeds(transcript));
+  }
+
   record ProfileDraft(String appellation, String intent, String budget, String decisionMaker, String notes) {
   }
 
   record NeedDraft(String title, String detail) {
+  }
+
+  record Extraction(ProfileDraft profile, List<NeedDraft> needs) {
   }
 }

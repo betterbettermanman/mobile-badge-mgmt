@@ -211,6 +211,24 @@ th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line
   padding: 24px;
 }
 .timer { font-variant-numeric: tabular-nums; font-size: 42px; letter-spacing: 0.04em; }
+.analysis-bar.queued { border-color: var(--line); }
+.analysis-bar.processing_asr,
+.analysis-bar.processing_llm { border-color: #8eb7e8; background: #f4f8fd; }
+.analysis-bar.succeeded { border-color: #b7dfc8; background: #f3fbf6; }
+.analysis-bar.failed { border-color: #e7b4b4; background: var(--danger-soft); }
+.stepper { display: flex; gap: 8px; list-style: none; padding: 0; margin: 0; font-size: 12px; }
+.stepper li { padding: 4px 8px; border-radius: 999px; background: #eeeae4; color: #6d675f; }
+.stepper li.done { background: var(--pine-soft); color: var(--pine-dark); }
+.stepper li.current { background: #d7e7f8; color: #1d4e89; }
+.vendor-box {
+  background: #f7f4ec;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+}
+.vendor-box p { margin: 0; }
 @media (max-width: 900px) {
   .admin { grid-template-columns: 1fr; }
   .side { padding-bottom: 8px; }
